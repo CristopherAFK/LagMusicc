@@ -67,29 +67,38 @@ export default {
         musicManager.play(interaction.guildId, voiceChannel);
       }
     } else {
-      const song = await musicManager.searchSong(cancion);
-      
-      if (!song) {
-        return interaction.editReply('❌ No se pudo encontrar la canción.');
-      }
+      try {
+        console.log(`🔍 Buscando: "${cancion}"`);
+        const song = await musicManager.searchSong(cancion);
+        
+        if (!song) {
+          console.log('❌ No se encontró la canción');
+          return interaction.editReply('❌ No se pudo encontrar la canción. Intenta con un link directo de YouTube.');
+        }
 
-      queue.songs.push(song);
+        console.log(`✅ Canción encontrada: ${song.title}`);
+        queue.songs.push(song);
 
-      const embed = new EmbedBuilder()
-        .setColor('#00FF00')
-        .setTitle(queue.isPlaying ? '➕ Canción Agregada a la Cola' : '🎵 Reproduciendo Ahora')
-        .setDescription(`**${song.title}**`)
-        .setThumbnail(song.thumbnail)
-        .addFields(
-          { name: 'Duración', value: `${Math.floor(song.duration / 60)}:${(song.duration % 60).toString().padStart(2, '0')}`, inline: true },
-          { name: 'Posición en cola', value: `${queue.songs.length}`, inline: true }
-        )
-        .setTimestamp();
+        const embed = new EmbedBuilder()
+          .setColor('#00FF00')
+          .setTitle(queue.isPlaying ? '➕ Canción Agregada a la Cola' : '🎵 Reproduciendo Ahora')
+          .setDescription(`**${song.title}**`)
+          .setThumbnail(song.thumbnail)
+          .addFields(
+            { name: 'Duración', value: `${Math.floor(song.duration / 60)}:${(song.duration % 60).toString().padStart(2, '0')}`, inline: true },
+            { name: 'Posición en cola', value: `${queue.songs.length}`, inline: true }
+          )
+          .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
-      if (!queue.isPlaying) {
-        musicManager.play(interaction.guildId, voiceChannel);
+        if (!queue.isPlaying) {
+          console.log('🎵 Iniciando reproducción...');
+          await musicManager.play(interaction.guildId, voiceChannel);
+        }
+      } catch (error) {
+        console.error('❌ Error en comando play:', error);
+        return interaction.editReply(`❌ Error: ${error.message}`);
       }
     }
   }

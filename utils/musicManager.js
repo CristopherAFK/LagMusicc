@@ -214,18 +214,29 @@ export class MusicManager {
     queue.isPlaying = true;
 
     try {
+      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
+      console.log(`🔗 URL: ${queue.currentSong.url}`);
+      
       const stream = await play.stream(queue.currentSong.url);
+      console.log(`✅ Stream obtenido correctamente`);
+      
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type
       });
+      console.log(`✅ Recurso de audio creado`);
 
       connection.subscribe(player);
       player.play(resource);
+      console.log(`✅ Reproducción iniciada`);
     } catch (error) {
-      console.error('Error playing song:', error);
+      console.error('❌ Error playing song:', error);
+      console.error('Stack:', error.stack);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         this.play(guildId, voiceChannel);
+      } else {
+        queue.isPlaying = false;
+        queue.currentSong = null;
       }
     }
   }

@@ -4,9 +4,21 @@ import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
+import play from 'play-dl';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+await play.getFreeClientID().then((clientID) => {
+  play.setToken({
+    soundcloud: {
+      client_id: clientID
+    }
+  });
+  console.log('✅ play-dl inicializado correctamente');
+}).catch(err => {
+  console.log('⚠️ No se pudo obtener SoundCloud client ID:', err.message);
+});
 
 const client = new Client({
   intents: [
