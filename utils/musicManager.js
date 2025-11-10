@@ -25,7 +25,8 @@ export class MusicManager {
         currentSong: null,
         loop: false,
         shuffle: false,
-        isPlaying: false
+        isPlaying: false,
+        skipShift: false
       });
     }
     return this.queues.get(guildId);
@@ -159,10 +160,16 @@ export class MusicManager {
       this.players.set(guildId, player);
       
       player.on(AudioPlayerStatus.Idle, () => {
+        this.clearVoteSkip(guildId);
+        
         if (queue.loop && queue.currentSong) {
           this.play(guildId, voiceChannel);
         } else {
-          queue.songs.shift();
+          if (!queue.skipShift) {
+            queue.songs.shift();
+          }
+          queue.skipShift = false;
+          
           if (queue.songs.length > 0) {
             this.play(guildId, voiceChannel);
           } else {
@@ -286,12 +293,12 @@ export class MusicManager {
     const queue = this.getQueue(guildId);
     if (queue.songs.length <= 1) return false;
     
-    const current = queue.songs[0];
     const remaining = queue.songs.slice(1);
     const randomIndex = Math.floor(Math.random() * remaining.length);
     const randomSong = remaining[randomIndex];
     
-    queue.songs = [randomSong, current, ...remaining.filter((_, i) => i !== randomIndex)];
+    queue.songs = [randomSong, ...remaining.filter((_, i) => i !== randomIndex)];
+    queue.skipShift = true;
     
     const player = this.players.get(guildId);
     if (player) {

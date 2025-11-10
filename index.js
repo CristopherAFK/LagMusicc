@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, REST, Routes, Events } from 'discord.js';
 import { MusicManager } from './utils/musicManager.js';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
@@ -27,7 +27,7 @@ for (const file of commandFiles) {
   client.commands.set(command.default.data.name, command.default);
 }
 
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
   
   const commands = Array.from(client.commands.values()).map(cmd => cmd.data.toJSON());
@@ -57,9 +57,17 @@ client.on('voiceStateUpdate', (oldState, newState) => {
   
   if (!newState.channelId && oldState.channelId) {
     const channel = oldState.channel;
-    if (channel && channel.members.filter(m => !m.user.bot).size === 0) {
+    const remainingMembers = channel ? channel.members.filter(m => !m.user.bot) : [];
+    
+    if (remainingMembers.size === 0) {
       client.musicManager.disconnect(oldState.guild.id);
       console.log(`🔇 Todos salieron del canal de voz, desconectando...`);
+    } else if (client.musicManager.getVoiceCreator(oldState.guild.id) === oldState.member.id) {
+      const newCreator = remainingMembers.first();
+      if (newCreator) {
+        client.musicManager.setVoiceCreator(oldState.guild.id, newCreator.id);
+        console.log(`👑 ${newCreator.user.tag} es ahora el creador del canal de voz`);
+      }
     }
   }
 });

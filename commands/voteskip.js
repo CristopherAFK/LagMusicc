@@ -29,7 +29,7 @@ export default {
     const memberCount = members.size;
     
     const votes = musicManager.addVoteSkip(interaction.guildId, interaction.user.id);
-    const required = Math.ceil(memberCount * config.voteSkipThreshold);
+    const required = Math.floor(memberCount / 2) + 1;
     
     if (votes >= required) {
       musicManager.clearVoteSkip(interaction.guildId);
