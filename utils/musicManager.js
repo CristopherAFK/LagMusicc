@@ -70,24 +70,28 @@ export class MusicManager {
         };
       }
       
-      if (play.sp_validate(query)) {
-        const spotifyData = await play.spotify(query);
-        if (spotifyData.type === 'track') {
-          const searchResults = await play.search(`${spotifyData.name} ${spotifyData.artists[0].name}`, { limit: 1 });
-          if (searchResults.length > 0) {
-            const info = await play.video_info(searchResults[0].url);
-            return {
-              title: info.video_details.title,
-              url: info.video_details.url,
-              duration: info.video_details.durationInSec,
-              thumbnail: info.video_details.thumbnails[0].url,
-              originalTitle: spotifyData.name
-            };
+      if (query.includes('spotify.com')) {
+        try {
+          const spotifyData = await play.spotify(query);
+          if (spotifyData.type === 'track') {
+            const searchResults = await play.search(`${spotifyData.name} ${spotifyData.artists[0].name}`, { limit: 1 });
+            if (searchResults.length > 0) {
+              const info = await play.video_info(searchResults[0].url);
+              return {
+                title: info.video_details.title,
+                url: info.video_details.url,
+                duration: info.video_details.durationInSec,
+                thumbnail: info.video_details.thumbnails[0].url,
+                originalTitle: spotifyData.name
+              };
+            }
           }
+        } catch (spotifyError) {
+          console.error('Error con Spotify, buscando en YouTube:', spotifyError.message);
         }
       }
       
-      const searchResults = await play.search(searchQuery, { limit: 1 });
+      const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
       if (searchResults.length === 0) return null;
       
       const info = await play.video_info(searchResults[0].url);
@@ -105,25 +109,30 @@ export class MusicManager {
 
   async getPlaylist(url, platform) {
     try {
-      if (play.sp_validate(url) === 'playlist') {
-        const playlist = await play.spotify(url);
-        const tracks = await playlist.all_tracks();
-        
-        const songs = [];
-        for (const track of tracks) {
-          const searchResults = await play.search(`${track.name} ${track.artists[0].name}`, { limit: 1 });
-          if (searchResults.length > 0) {
-            const info = await play.video_info(searchResults[0].url);
-            songs.push({
-              title: info.video_details.title,
-              url: info.video_details.url,
-              duration: info.video_details.durationInSec,
-              thumbnail: info.video_details.thumbnails[0].url,
-              originalTitle: track.name
-            });
+      if (url.includes('spotify.com/playlist')) {
+        try {
+          const playlist = await play.spotify(url);
+          const tracks = await playlist.all_tracks();
+          
+          const songs = [];
+          for (const track of tracks) {
+            const searchResults = await play.search(`${track.name} ${track.artists[0].name}`, { limit: 1, source: { youtube: 'video' } });
+            if (searchResults.length > 0) {
+              const info = await play.video_info(searchResults[0].url);
+              songs.push({
+                title: info.video_details.title,
+                url: info.video_details.url,
+                duration: info.video_details.durationInSec,
+                thumbnail: info.video_details.thumbnails[0].url,
+                originalTitle: track.name
+              });
+            }
           }
+          return songs;
+        } catch (spotifyError) {
+          console.error('Error con playlist de Spotify:', spotifyError.message);
+          return [];
         }
-        return songs;
       }
       
       if (play.yt_validate(url) === 'playlist') {
