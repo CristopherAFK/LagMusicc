@@ -7,7 +7,8 @@ import {
   entersState
 } from '@discordjs/voice';
 import play from 'play-dl';
-import ytdl from '@distube/ytdl-core';
+import { spawn } from 'child_process';
+import { Readable } from 'stream';
 
 export class MusicManager {
   constructor() {
@@ -62,68 +63,71 @@ export class MusicManager {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
       if (query.includes('youtube.com') || query.includes('youtu.be')) {
-        try {
-          const info = await ytdl.getInfo(query);
-          return {
-            title: info.videoDetails.title,
-            url: info.videoDetails.video_url,
-            duration: parseInt(info.videoDetails.lengthSeconds),
-            thumbnail: info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1].url
-          };
-        } catch (err) {
-          console.error('Error con ytdl, intentando con play-dl:', err.message);
-        }
+        const info = await play.video_info(query);
+        return {
+          title: info.video_details.title,
+          url: info.video_details.url,
+          duration: info.video_details.durationInSec,
+          thumbnail: info.video_details.thumbnails[0]?.url
+        };
       }
       
       const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
       if (searchResults.length === 0) return null;
       
-      try {
-        const info = await ytdl.getInfo(searchResults[0].url);
-        return {
-          title: info.videoDetails.title,
-          url: info.videoDetails.video_url,
-          duration: parseInt(info.videoDetails.lengthSeconds),
-          thumbnail: info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1].url
-        };
-      } catch (err) {
-        console.error('Error obteniendo info de YouTube:', err.message);
-        return null;
-      }
+      const info = await play.video_info(searchResults[0].url);
+      return {
+        title: info.video_details.title,
+        url: info.video_details.url,
+        duration: info.video_details.durationInSec,
+        thumbnail: info.video_details.thumbnails[0]?.url
+      };
     } catch (error) {
-      console.error('Error searching song:', error);
+      console.error('Error searching song:', error.message);
       return null;
     }
   }
 
   async getPlaylist(url, platform) {
     try {
-      if (url.includes('youtube.com/playlist') || url.includes('youtu.be')) {
+      if (url.includes('youtube.com/playlist')) {
         const playlist = await play.playlist_info(url);
         const videos = await playlist.all_videos();
         
-        const songs = [];
-        for (const video of videos) {
-          try {
-            const info = await ytdl.getInfo(video.url);
-            songs.push({
-              title: info.videoDetails.title,
-              url: info.videoDetails.video_url,
-              duration: parseInt(info.videoDetails.lengthSeconds),
-              thumbnail: info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1].url
-            });
-          } catch (err) {
-            console.error(`Error con video ${video.url}:`, err.message);
-          }
-        }
-        return songs;
+        return videos.map(video => ({
+          title: video.title,
+          url: video.url,
+          duration: video.durationInSec,
+          thumbnail: video.thumbnails[0]?.url
+        }));
       }
       
       return [];
     } catch (error) {
-      console.error('Error getting playlist:', error);
+      console.error('Error getting playlist:', error.message);
       return [];
     }
+  }
+
+  convertToFFMPEGStream(webStream) {
+    const ffmpeg = spawn('ffmpeg', [
+      '-loglevel', '0',
+      '-i', 'pipe:3',
+      '-acodec', 'libopus',
+      '-f', 'opus',
+      'pipe:4'
+    ], {
+      stdio: [
+        'pipe',
+        'pipe',
+        'pipe',
+        'pipe',
+        'pipe'
+      ]
+    });
+
+    webStream.pipe(ffmpeg.stdio[3]);
+    return ffmpeg.stdio[4];
   }
 
   async play(guildId, voiceChannel) {
@@ -161,10 +165,10 @@ export class MusicManager {
       });
 
       player.on('error', error => {
-        console.error('Audio player error:', error);
+        console.error('❌ Error en reproductor:', error.message);
         queue.songs.shift();
         if (queue.songs.length > 0) {
-          this.play(guildId, voiceChannel);
+          setTimeout(() => this.play(guildId, voiceChannel), 500);
         } else {
           queue.isPlaying = false;
           queue.currentSong = null;
@@ -198,25 +202,36 @@ export class MusicManager {
     queue.isPlaying = true;
 
     try {
-      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
+      console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      const stream = ytdl(queue.currentSong.url, {
-        quality: 'lowest',
-        filter: 'audioonly'
+      let stream;
+      try {
+        stream = await play.stream(queue.currentSong.url);
+      } catch (playDlError) {
+        console.error('❌ Error con play-dl stream:', playDlError.message);
+        throw playDlError;
+      }
+
+      if (!stream || !stream.stream) {
+        throw new Error('Stream no disponible');
+      }
+
+      console.log(`📦 Stream type: ${stream.type}`);
+
+      const resource = createAudioResource(stream.stream, {
+        inputType: stream.type,
+        inlineVolume: true
       });
 
-      const resource = createAudioResource(stream, {
-        inputType: 'arbitrary'
-      });
-      console.log(`✅ Recurso de audio creado`);
+      console.log(`✅ Recurso creado`);
 
       connection.subscribe(player);
       player.play(resource);
       console.log(`✅ Reproducción iniciada`);
     } catch (error) {
-      console.error('❌ Error playing song:', error);
-      console.error('Stack:', error.stack);
+      console.error('❌ Error al reproducir:', error.message);
+      console.error('📍 Stack:', error.stack);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         setTimeout(() => this.play(guildId, voiceChannel), 1000);
