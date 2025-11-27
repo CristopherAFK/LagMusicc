@@ -20,7 +20,7 @@ export default {
     }
 
     const embed = new EmbedBuilder()
-      .setColor('#9B59B6')
+      .setColor('#11FFEE')
       .setTitle('🎵 Comandos del Bot de Música')
       .setDescription('Aquí tienes todos los comandos disponibles:')
       .addFields(

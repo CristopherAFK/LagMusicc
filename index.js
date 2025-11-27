@@ -7,7 +7,7 @@ import { readdirSync } from 'fs';
 import play from 'play-dl';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = dirname(__filename  );
 
 await play.getFreeClientID().then((clientID) => {
   play.setToken({
