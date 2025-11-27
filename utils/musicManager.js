@@ -6,8 +6,9 @@ import {
   VoiceConnectionStatus,
   entersState
 } from '@discordjs/voice';
-import ytdl from '@distube/ytdl-core';
 import play from 'play-dl';
+import { spawn } from 'child_process';
+import { Readable } from 'stream';
 
 export class MusicManager {
   constructor() {
@@ -61,35 +62,16 @@ export class MusicManager {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
-      if (query.includes('youtube.com') || query.includes('youtu.be')) {
-        try {
-          const info = await ytdl.getInfo(query);
-          return {
-            title: info.videoDetails.title,
-            url: info.videoDetails.video_url,
-            duration: parseInt(info.videoDetails.lengthSeconds),
-            thumbnail: info.videoDetails.thumbnail?.thumbnails?.[0]?.url || ''
-          };
-        } catch (err) {
-          console.error('Error con ytdl, intentando play-dl:', err.message);
-        }
-      }
-      
       const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
       if (searchResults.length === 0) return null;
       
-      try {
-        const info = await ytdl.getInfo(searchResults[0].url);
-        return {
-          title: info.videoDetails.title,
-          url: info.videoDetails.video_url,
-          duration: parseInt(info.videoDetails.lengthSeconds),
-          thumbnail: info.videoDetails.thumbnail?.thumbnails?.[0]?.url || ''
-        };
-      } catch (err) {
-        console.error('Error obteniendo info con ytdl:', err.message);
-        return null;
-      }
+      const video = searchResults[0];
+      return {
+        title: video.title,
+        url: video.url,
+        duration: video.durationInSec,
+        thumbnail: video.thumbnails?.[0]?.url || ''
+      };
     } catch (error) {
       console.error('Error searching song:', error.message);
       return null;
@@ -102,21 +84,12 @@ export class MusicManager {
         const playlist = await play.playlist_info(url);
         const videos = await playlist.all_videos();
         
-        const songs = [];
-        for (const video of videos) {
-          try {
-            const info = await ytdl.getInfo(video.url);
-            songs.push({
-              title: info.videoDetails.title,
-              url: info.videoDetails.video_url,
-              duration: parseInt(info.videoDetails.lengthSeconds),
-              thumbnail: info.videoDetails.thumbnail?.thumbnails?.[0]?.url || ''
-            });
-          } catch (err) {
-            console.error(`Error con video ${video.url}:`, err.message);
-          }
-        }
-        return songs;
+        return videos.map(video => ({
+          title: video.title,
+          url: video.url,
+          duration: video.durationInSec,
+          thumbnail: video.thumbnails?.[0]?.url || ''
+        }));
       }
       
       return [];
@@ -124,6 +97,49 @@ export class MusicManager {
       console.error('Error getting playlist:', error.message);
       return [];
     }
+  }
+
+  async getStreamWithYtDlp(url) {
+    return new Promise((resolve, reject) => {
+      const process = spawn('yt-dlp', [
+        '-f', 'bestaudio/best',
+        '-o', '-',
+        '--quiet',
+        '--no-warnings',
+        url
+      ]);
+
+      let hasStarted = false;
+
+      process.stdout.on('data', () => {
+        if (!hasStarted) {
+          hasStarted = true;
+          resolve(process.stdout);
+        }
+      });
+
+      process.stderr.on('data', (data) => {
+        const error = data.toString();
+        if (!hasStarted && error.includes('ERROR')) {
+          hasStarted = true;
+          reject(new Error(`yt-dlp error: ${error}`));
+        }
+      });
+
+      process.on('error', (err) => {
+        if (!hasStarted) {
+          hasStarted = true;
+          reject(err);
+        }
+      });
+
+      setTimeout(() => {
+        if (!hasStarted) {
+          hasStarted = true;
+          resolve(process.stdout);
+        }
+      }, 2000);
+    });
   }
 
   async play(guildId, voiceChannel) {
@@ -161,7 +177,7 @@ export class MusicManager {
       });
 
       player.on('error', error => {
-        console.error('Audio player error:', error.message);
+        console.error('❌ Audio player error:', error.message);
         queue.songs.shift();
         if (queue.songs.length > 0) {
           setTimeout(() => this.play(guildId, voiceChannel), 1000);
@@ -201,12 +217,8 @@ export class MusicManager {
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      const stream = ytdl(queue.currentSong.url, {
-        quality: 'lowestaudio',
-        filter: 'audioonly'
-      });
-
-      console.log(`✅ Stream de ytdl creado`);
+      const stream = await this.getStreamWithYtDlp(queue.currentSong.url);
+      console.log(`✅ Stream obtenido con yt-dlp`);
 
       const resource = createAudioResource(stream, {
         inputType: 'arbitrary'
@@ -219,7 +231,6 @@ export class MusicManager {
       console.log(`✅ Reproducción iniciada`);
     } catch (error) {
       console.error('❌ Error al reproducir:', error.message);
-      console.error('📍 Stack:', error.stack);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         setTimeout(() => this.play(guildId, voiceChannel), 1000);
