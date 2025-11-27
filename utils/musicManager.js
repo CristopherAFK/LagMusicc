@@ -63,7 +63,15 @@ export class MusicManager {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
       if (query.includes('youtube.com') || query.includes('youtu.be')) {
-        const info = await play.video_info(query);
+        const info = await play.video_info(query, { 
+          cache: new Map(),
+          fetch_options: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9'
+            }
+          }
+        });
         return {
           title: info.video_details.title,
           url: info.video_details.url,
@@ -72,10 +80,26 @@ export class MusicManager {
         };
       }
       
-      const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
+      const searchResults = await play.search(searchQuery, { 
+        limit: 1, 
+        source: { youtube: 'video' },
+        fetch_options: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        }
+      });
       if (searchResults.length === 0) return null;
       
-      const info = await play.video_info(searchResults[0].url);
+      const info = await play.video_info(searchResults[0].url, {
+        fetch_options: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        }
+      });
       return {
         title: info.video_details.title,
         url: info.video_details.url,
@@ -207,7 +231,17 @@ export class MusicManager {
       
       let stream;
       try {
-        stream = await play.stream(queue.currentSong.url);
+        stream = await play.stream(queue.currentSong.url, {
+          discordPlayerCompatibility: true,
+          fetch_options: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Referer': 'https://www.youtube.com/',
+              'Origin': 'https://www.youtube.com'
+            }
+          }
+        });
       } catch (playDlError) {
         console.error('❌ Error con play-dl stream:', playDlError.message);
         throw playDlError;
