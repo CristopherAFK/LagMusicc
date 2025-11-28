@@ -8,7 +8,6 @@ import {
 } from '@discordjs/voice';
 import play from 'play-dl';
 import { spawn } from 'child_process';
-import { Readable } from 'stream';
 
 export class MusicManager {
   constructor() {
@@ -99,9 +98,10 @@ export class MusicManager {
     }
   }
 
-  async getStreamWithYtDlp(url) {
+  async getStreamWithYtDlpAndFFmpeg(url) {
     return new Promise((resolve, reject) => {
-      const process = spawn('yt-dlp', [
+      // Ejecutar yt-dlp para obtener el stream de audio
+      const ytdlpProcess = spawn('yt-dlp', [
         '-f', 'bestaudio/best',
         '-o', '-',
         '--quiet',
@@ -109,36 +109,50 @@ export class MusicManager {
         url
       ]);
 
+      // Procesar el stream con FFmpeg para convertir a Opus (formato Discord)
+      const ffmpegProcess = spawn('ffmpeg', [
+        '-i', 'pipe:0',
+        '-acodec', 'libopus',
+        '-f', 'opus',
+        '-b:a', '128k',
+        'pipe:1'
+      ], {
+        stdio: ['pipe', 'pipe', 'ignore']
+      });
+
       let hasStarted = false;
-
-      process.stdout.on('data', () => {
+      const timeout = setTimeout(() => {
         if (!hasStarted) {
           hasStarted = true;
-          resolve(process.stdout);
-        }
-      });
-
-      process.stderr.on('data', (data) => {
-        const error = data.toString();
-        if (!hasStarted && error.includes('ERROR')) {
-          hasStarted = true;
-          reject(new Error(`yt-dlp error: ${error}`));
-        }
-      });
-
-      process.on('error', (err) => {
-        if (!hasStarted) {
-          hasStarted = true;
-          reject(err);
-        }
-      });
-
-      setTimeout(() => {
-        if (!hasStarted) {
-          hasStarted = true;
-          resolve(process.stdout);
+          resolve(ffmpegProcess.stdout);
         }
       }, 2000);
+
+      ytdlpProcess.stdout.pipe(ffmpegProcess.stdin);
+
+      ffmpegProcess.stdout.on('data', () => {
+        if (!hasStarted) {
+          hasStarted = true;
+          clearTimeout(timeout);
+          resolve(ffmpegProcess.stdout);
+        }
+      });
+
+      ytdlpProcess.on('error', (err) => {
+        if (!hasStarted) {
+          hasStarted = true;
+          clearTimeout(timeout);
+          reject(new Error(`yt-dlp error: ${err.message}`));
+        }
+      });
+
+      ffmpegProcess.on('error', (err) => {
+        if (!hasStarted) {
+          hasStarted = true;
+          clearTimeout(timeout);
+          reject(new Error(`FFmpeg error: ${err.message}`));
+        }
+      });
     });
   }
 
@@ -217,11 +231,12 @@ export class MusicManager {
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      const stream = await this.getStreamWithYtDlp(queue.currentSong.url);
-      console.log(`✅ Stream obtenido con yt-dlp`);
+      console.log(`⏳ Obteniendo stream con yt-dlp y procesando con FFmpeg...`);
+      const stream = await this.getStreamWithYtDlpAndFFmpeg(queue.currentSong.url);
+      console.log(`✅ Stream obtenido y procesado`);
 
       const resource = createAudioResource(stream, {
-        inputType: 'arbitrary'
+        inputType: 'opus'
       });
 
       console.log(`✅ Recurso de audio creado`);
