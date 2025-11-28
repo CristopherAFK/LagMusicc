@@ -8,6 +8,7 @@ import {
 } from '@discordjs/voice';
 import play from 'play-dl';
 import { spawn } from 'child_process';
+import prism from 'prism-media';
 
 export class MusicManager {
   constructor() {
@@ -100,7 +101,6 @@ export class MusicManager {
 
   async getStreamWithYtDlpAndFFmpeg(url) {
     return new Promise((resolve, reject) => {
-      // Ejecutar yt-dlp para obtener el stream de audio
       const ytdlpProcess = spawn('yt-dlp', [
         '-f', 'bestaudio/best',
         '-o', '-',
@@ -109,7 +109,6 @@ export class MusicManager {
         url
       ]);
 
-      // Procesar el stream con FFmpeg para convertir a Opus (formato Discord)
       const ffmpegProcess = spawn('ffmpeg', [
         '-i', 'pipe:0',
         '-acodec', 'libopus',
@@ -117,42 +116,40 @@ export class MusicManager {
         '-b:a', '128k',
         'pipe:1'
       ], {
-        stdio: ['pipe', 'pipe', 'ignore']
+        stdio: ['pipe', 'pipe', 'ignore', 'ignore']
       });
 
-      let hasStarted = false;
-      const timeout = setTimeout(() => {
-        if (!hasStarted) {
-          hasStarted = true;
-          resolve(ffmpegProcess.stdout);
-        }
-      }, 2000);
+      let started = false;
 
       ytdlpProcess.stdout.pipe(ffmpegProcess.stdin);
 
       ffmpegProcess.stdout.on('data', () => {
-        if (!hasStarted) {
-          hasStarted = true;
-          clearTimeout(timeout);
+        if (!started) {
+          started = true;
           resolve(ffmpegProcess.stdout);
         }
       });
 
       ytdlpProcess.on('error', (err) => {
-        if (!hasStarted) {
-          hasStarted = true;
-          clearTimeout(timeout);
-          reject(new Error(`yt-dlp error: ${err.message}`));
+        if (!started) {
+          started = true;
+          reject(new Error(`yt-dlp: ${err.message}`));
         }
       });
 
       ffmpegProcess.on('error', (err) => {
-        if (!hasStarted) {
-          hasStarted = true;
-          clearTimeout(timeout);
-          reject(new Error(`FFmpeg error: ${err.message}`));
+        if (!started) {
+          started = true;
+          reject(new Error(`FFmpeg: ${err.message}`));
         }
       });
+
+      setTimeout(() => {
+        if (!started) {
+          started = true;
+          resolve(ffmpegProcess.stdout);
+        }
+      }, 3000);
     });
   }
 
@@ -191,7 +188,7 @@ export class MusicManager {
       });
 
       player.on('error', error => {
-        console.error('❌ Audio player error:', error.message);
+        console.error('❌ Player error:', error.message);
         queue.songs.shift();
         if (queue.songs.length > 0) {
           setTimeout(() => this.play(guildId, voiceChannel), 1000);
@@ -231,21 +228,20 @@ export class MusicManager {
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      console.log(`⏳ Obteniendo stream con yt-dlp y procesando con FFmpeg...`);
       const stream = await this.getStreamWithYtDlpAndFFmpeg(queue.currentSong.url);
-      console.log(`✅ Stream obtenido y procesado`);
+      console.log(`✅ Stream obtenido`);
 
       const resource = createAudioResource(stream, {
         inputType: 'opus'
       });
 
-      console.log(`✅ Recurso de audio creado`);
+      console.log(`✅ Recurso creado`);
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ Reproducción iniciada`);
+      console.log(`✅ ¡Reproducción iniciada!`);
     } catch (error) {
-      console.error('❌ Error al reproducir:', error.message);
+      console.error('❌ Error:', error.message);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         setTimeout(() => this.play(guildId, voiceChannel), 1000);
