@@ -7,7 +7,10 @@ import {
   entersState
 } from '@discordjs/voice';
 import play from 'play-dl';
-import { spawn } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execPromise = promisify(exec);
 
 export class MusicManager {
   constructor() {
@@ -60,7 +63,6 @@ export class MusicManager {
   async searchSong(query, isKaraoke = false) {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
-      
       const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
       if (searchResults.length === 0) return null;
       
@@ -82,7 +84,6 @@ export class MusicManager {
       if (url.includes('youtube.com/playlist')) {
         const playlist = await play.playlist_info(url);
         const videos = await playlist.all_videos();
-        
         return videos.map(video => ({
           title: video.title,
           url: video.url,
@@ -90,46 +91,11 @@ export class MusicManager {
           thumbnail: video.thumbnails?.[0]?.url || ''
         }));
       }
-      
       return [];
     } catch (error) {
       console.error('Error getting playlist:', error.message);
       return [];
     }
-  }
-
-  async getStreamWithYtDlpAndFFmpeg(url) {
-    const ytdlpProcess = spawn('yt-dlp', [
-      '-f', 'bestaudio/best',
-      '-o', '-',
-      '--quiet',
-      '--no-warnings',
-      url
-    ]);
-
-    const ffmpegProcess = spawn('ffmpeg', [
-      '-i', 'pipe:0',
-      '-acodec', 'libopus',
-      '-f', 'opus',
-      '-b:a', '128k',
-      'pipe:1'
-    ], {
-      stdio: ['pipe', 'pipe', 'ignore', 'ignore']
-    });
-
-    ytdlpProcess.stdout.pipe(ffmpegProcess.stdin);
-
-    ytdlpProcess.on('error', (err) => {
-      console.error('yt-dlp error:', err.message);
-      ffmpegProcess.kill();
-    });
-
-    ffmpegProcess.on('error', (err) => {
-      console.error('FFmpeg error:', err.message);
-      ytdlpProcess.kill();
-    });
-
-    return ffmpegProcess.stdout;
   }
 
   async play(guildId, voiceChannel) {
@@ -207,18 +173,19 @@ export class MusicManager {
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      const stream = await this.getStreamWithYtDlpAndFFmpeg(queue.currentSong.url);
+      const stream = await play.stream(queue.currentSong.url);
       console.log(`✅ Stream obtenido`);
 
-      const resource = createAudioResource(stream, {
-        inputType: 'opus'
+      const resource = createAudioResource(stream.stream, {
+        inputType: stream.type,
+        inlineVolume: true
       });
 
-      console.log(`✅ Recurso creado y reproduciendo...`);
+      console.log(`✅ Recurso creado`);
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ ¡En reproducción!`);
+      console.log(`✅ ¡Reproducción iniciada!`);
     } catch (error) {
       console.error('❌ Error:', error.message);
       queue.songs.shift();
