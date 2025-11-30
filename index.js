@@ -55,7 +55,14 @@ client.once(Events.ClientReady, async () => {
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
   
   try {
-    console.log('🔄 Registrando comandos slash...');
+    console.log('🔄 Limpiando comandos antiguos...');
+    await rest.put(
+      Routes.applicationGuildCommands(client.user.id, config.guildId),
+      { body: [] }
+    );
+    console.log('✅ Comandos antiguos eliminados');
+    
+    console.log('🔄 Registrando comandos slash nuevos...');
     await rest.put(
       Routes.applicationGuildCommands(client.user.id, config.guildId),
       { body: commands }
