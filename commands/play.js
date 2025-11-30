@@ -26,7 +26,10 @@ export default {
     const playlist = interaction.options.getString('playlist');
     const plataforma = interaction.options.getString('plataforma');
 
+    console.log(`📋 Parámetros recibidos - cancion: "${cancion}", playlist: "${playlist}"`);
+
     if (!cancion && !playlist) {
+      console.log('❌ Ningún parámetro fue proporcionado');
       return interaction.reply({ 
         content: '❌ Debes proporcionar una canción o una playlist.', 
         ephemeral: true 
