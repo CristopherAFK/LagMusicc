@@ -3,33 +3,19 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('Reproduce una canción o playlist')
+    .setDescription('Reproduce una canción')
     .addStringOption(option =>
-      option.setName('cancion')
-        .setDescription('Nombre o URL de la canción')
-        .setRequired(false))
-    .addStringOption(option =>
-      option.setName('playlist')
-        .setDescription('URL de la playlist (YouTube o Spotify)')
-        .setRequired(false))
-    .addStringOption(option =>
-      option.setName('plataforma')
-        .setDescription('Plataforma de música')
-        .setRequired(false)
-        .addChoices(
-          { name: 'YouTube', value: 'youtube' },
-          { name: 'Spotify', value: 'spotify' }
-        )),
+      option.setName('query')
+        .setDescription('Nombre, URL de YouTube o URL de playlist')
+        .setRequired(true)),
 
   async execute(interaction, client) {
-    const cancion = interaction.options.getString('cancion');
-    const playlist = interaction.options.getString('playlist');
-    const plataforma = interaction.options.getString('plataforma');
+    const query = interaction.options.getString('query');
 
-    console.log(`📋 Parámetros recibidos - cancion: "${cancion}", playlist: "${playlist}"`);
+    console.log(`🔍 Query recibida: "${query}"`);
 
-    if (!cancion && !playlist) {
-      console.log('❌ Ningún parámetro fue proporcionado');
+    if (!query || query.trim() === '') {
+      console.log('❌ Query vacía');
       return interaction.reply({ 
         content: '❌ Debes proporcionar una canción o una playlist.', 
         ephemeral: true 
@@ -49,30 +35,33 @@ export default {
     const musicManager = client.musicManager;
     const queue = musicManager.getQueue(interaction.guildId);
 
-    if (playlist) {
-      const songs = await musicManager.getPlaylist(playlist, plataforma || 'youtube');
-      
-      if (songs.length === 0) {
-        return interaction.editReply('❌ No se pudo cargar la playlist o está vacía.');
-      }
+    try {
+      // Detectar si es una playlist
+      if (query.includes('playlist')) {
+        console.log(`📋 Cargando playlist: "${query}"`);
+        const songs = await musicManager.getPlaylist(query, 'youtube');
+        
+        if (songs.length === 0) {
+          return interaction.editReply('❌ No se pudo cargar la playlist o está vacía.');
+        }
 
-      queue.songs.push(...songs);
+        queue.songs.push(...songs);
 
-      const embed = new EmbedBuilder()
-        .setColor('#00FF00')
-        .setTitle('✅ Playlist Agregada')
-        .setDescription(`Se agregaron **${songs.length}** canciones a la cola`)
-        .setTimestamp();
+        const embed = new EmbedBuilder()
+          .setColor('#00FF00')
+          .setTitle('✅ Playlist Agregada')
+          .setDescription(`Se agregaron **${songs.length}** canciones a la cola`)
+          .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
-      if (!queue.isPlaying) {
-        musicManager.play(interaction.guildId, voiceChannel);
-      }
-    } else {
-      try {
-        console.log(`🔍 Buscando: "${cancion}"`);
-        const song = await musicManager.searchSong(cancion);
+        if (!queue.isPlaying) {
+          musicManager.play(interaction.guildId, voiceChannel);
+        }
+      } else {
+        // Es una canción individual
+        console.log(`🔍 Buscando canción: "${query}"`);
+        const song = await musicManager.searchSong(query);
         
         if (!song) {
           console.log('❌ No se encontró la canción');
@@ -99,10 +88,10 @@ export default {
           console.log('🎵 Iniciando reproducción...');
           await musicManager.play(interaction.guildId, voiceChannel);
         }
-      } catch (error) {
-        console.error('❌ Error en comando play:', error);
-        return interaction.editReply(`❌ Error: ${error.message}`);
       }
+    } catch (error) {
+      console.error('❌ Error en comando play:', error);
+      return interaction.editReply(`❌ Error: ${error.message}`);
     }
   }
 };
