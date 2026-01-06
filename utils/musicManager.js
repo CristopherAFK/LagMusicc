@@ -176,6 +176,20 @@ export class MusicManager {
       }
 
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
+      console.log(`🔗 URL que se va a usar: "${queue.currentSong.url}"`);
+      console.log(`🔍 Tipo de URL: ${typeof queue.currentSong.url}`);
+      
+      // Validar que la URL sea válida antes de usarla
+      if (!queue.currentSong.url || typeof queue.currentSong.url !== 'string') {
+        throw new Error(`Invalid URL type: ${typeof queue.currentSong.url}, value: ${queue.currentSong.url}`);
+      }
+      
+      // Verificar que la URL tenga el formato correcto de YouTube
+      if (!queue.currentSong.url.includes('youtube.com/watch') && !queue.currentSong.url.includes('youtu.be/')) {
+        throw new Error(`Invalid YouTube URL format: ${queue.currentSong.url}`);
+      }
+      
+      console.log(`✅ URL validada correctamente`);
       
       // SOLUCIÓN DEFINITIVA: Usar play.stream(url) directamente sin play.stream_from_info
       // El error ERR_INVALID_URL ocurre cuando play.stream recibe un objeto de info en lugar de un string URL
