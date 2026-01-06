@@ -5,7 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "npm install && node index.js",
+    "replit": "npm install && node index.js"
   },
   "keywords": [
     "discord",

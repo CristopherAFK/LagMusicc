@@ -25,7 +25,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node index.js"
+args = "npm run replit"
 
 [workflows.workflow.metadata]
 outputType = "console"
