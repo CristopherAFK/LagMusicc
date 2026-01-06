@@ -61,30 +61,21 @@ export class MusicManager {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
-      // Intentar obtener info directamente si parece URL
+      let video;
       if (query.startsWith('http')) {
-        try {
-          const videoInfo = await play.video_info(query);
-          return {
-            title: videoInfo.video_details.title,
-            url: videoInfo.video_details.url,
-            duration: videoInfo.video_details.durationInSec,
-            thumbnail: videoInfo.video_details.thumbnails?.[0]?.url || ''
-          };
-        } catch (e) {
-          // No es URL directa o falló, buscar normalmente
-        }
+        const videoInfo = await play.video_info(query);
+        video = videoInfo.video_details;
+      } else {
+        const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
+        if (searchResults.length === 0) return null;
+        video = searchResults[0];
       }
-
-      const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
-      if (searchResults.length === 0) return null;
       
-      const video = searchResults[0];
       return {
         title: video.title,
         url: video.url,
-        duration: video.durationInSec,
-        thumbnail: video.thumbnails?.[0]?.url || ''
+        duration: video.durationInSec || video.duration_raw,
+        thumbnail: video.thumbnails?.[0]?.url || video.thumbnail?.url || ''
       };
     } catch (error) {
       console.error('Error searching song:', error.message);
@@ -124,7 +115,6 @@ export class MusicManager {
       
       player.on(AudioPlayerStatus.Idle, () => {
         this.clearVoteSkip(guildId);
-        
         if (queue.loop && queue.currentSong) {
           this.play(guildId, voiceChannel);
         } else {
@@ -132,7 +122,6 @@ export class MusicManager {
             queue.songs.shift();
           }
           queue.skipShift = false;
-          
           if (queue.songs.length > 0) {
             this.play(guildId, voiceChannel);
           } else {
@@ -143,7 +132,7 @@ export class MusicManager {
       });
 
       player.on('error', error => {
-        console.error('❌ Player error:', error.message);
+        console.error('❌ Player error:', error);
         queue.songs.shift();
         if (queue.songs.length > 0) {
           setTimeout(() => this.play(guildId, voiceChannel), 1000);
@@ -180,15 +169,12 @@ export class MusicManager {
     queue.isPlaying = true;
 
     try {
-      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
+      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title} (${queue.currentSong.url})`);
       
-      // USAR SOLUCIÓN MÁS ROBUSTA PARA REPRODUCCIÓN
-      const stream = await play.stream(queue.currentSong.url, {
-        discordPlayerCompatibility: true,
-        quality: 1 // Calidad normal para asegurar compatibilidad
-      });
+      // Intentar obtener el stream sin flags extras primero para diagnosticar
+      const stream = await play.stream(queue.currentSong.url);
       
-      console.log(`✅ Stream obtenido para: ${queue.currentSong.title}`);
+      console.log(`✅ Stream obtenido: ${stream.type}`);
 
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
@@ -197,9 +183,9 @@ export class MusicManager {
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ ¡Reproducción iniciada en canal: ${voiceChannel.name}!`);
+      console.log(`✅ Reproducción iniciada`);
     } catch (error) {
-      console.error('❌ Error crítico en play:', error.message);
+      console.error('❌ Error crítico en play:', error);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         setTimeout(() => this.play(guildId, voiceChannel), 1000);
@@ -231,7 +217,6 @@ export class MusicManager {
   skip(guildId, voiceChannel) {
     const queue = this.getQueue(guildId);
     const player = this.players.get(guildId);
-    
     if (player && queue.songs.length > 0) {
       queue.loop = false;
       player.stop();
@@ -255,16 +240,13 @@ export class MusicManager {
   setShuffle(guildId, enabled) {
     const queue = this.getQueue(guildId);
     queue.shuffle = enabled;
-    
     if (enabled && queue.songs.length > 1) {
       const current = queue.songs[0];
       const remaining = queue.songs.slice(1);
-      
       for (let i = remaining.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
       }
-      
       queue.songs = [current, ...remaining];
     }
   }
@@ -272,20 +254,16 @@ export class MusicManager {
   playRandom(guildId, voiceChannel) {
     const queue = this.getQueue(guildId);
     if (queue.songs.length <= 1) return false;
-    
     const remaining = queue.songs.slice(1);
     const randomIndex = Math.floor(Math.random() * remaining.length);
     const randomSong = remaining[randomIndex];
-    
     queue.songs = [randomSong, ...remaining.filter((_, i) => i !== randomIndex)];
     queue.skipShift = true;
-    
     const player = this.players.get(guildId);
     if (player) {
       queue.loop = false;
       player.stop();
     }
-    
     return true;
   }
 
@@ -317,13 +295,11 @@ export class MusicManager {
       connection.destroy();
       this.connections.delete(guildId);
     }
-    
     const player = this.players.get(guildId);
     if (player) {
       player.stop();
       this.players.delete(guildId);
     }
-    
     this.queues.delete(guildId);
     this.voteSkips.delete(guildId);
   }
