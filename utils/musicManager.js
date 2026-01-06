@@ -4,13 +4,10 @@ import {
   joinVoiceChannel,
   AudioPlayerStatus,
   VoiceConnectionStatus,
-  entersState
+  entersState,
+  StreamType
 } from '@discordjs/voice';
 import play from 'play-dl';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execPromise = promisify(exec);
 
 export class MusicManager {
   constructor() {
@@ -63,6 +60,18 @@ export class MusicManager {
   async searchSong(query, isKaraoke = false) {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
+      
+      // Si ya es una URL de YouTube, validarla primero
+      if (query.startsWith('http') && play.yt_validate(query) === 'video') {
+         const videoInfo = await play.video_info(query);
+         return {
+            title: videoInfo.video_details.title,
+            url: videoInfo.video_details.url,
+            duration: videoInfo.video_details.durationInSec,
+            thumbnail: videoInfo.video_details.thumbnails?.[0]?.url || ''
+         };
+      }
+
       const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
       if (searchResults.length === 0) return null;
       
@@ -81,7 +90,7 @@ export class MusicManager {
 
   async getPlaylist(url, platform) {
     try {
-      if (url.includes('youtube.com/playlist')) {
+      if (url.includes('youtube.com/playlist') || url.includes('list=')) {
         const playlist = await play.playlist_info(url);
         const videos = await playlist.all_videos();
         return videos.map(video => ({
@@ -170,24 +179,24 @@ export class MusicManager {
     queue.isPlaying = true;
 
     try {
-      console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
-      console.log(`🔗 URL: ${queue.currentSong.url}`);
+      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
       
-      const stream = await play.stream(queue.currentSong.url);
-      console.log(`✅ Stream obtenido`);
+      const stream = await play.stream(queue.currentSong.url, {
+        discordPlayerCompatibility: true
+      });
+      
+      console.log(`✅ Stream obtenido (tipo: ${stream.type})`);
 
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
         inlineVolume: true
       });
 
-      console.log(`✅ Recurso creado`);
-
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ ¡Reproducción iniciada!`);
+      console.log(`✅ ¡Reproducción iniciada en Discord!`);
     } catch (error) {
-      console.error('❌ Error:', error.message);
+      console.error('❌ Error crítico en play:', error.message);
       queue.songs.shift();
       if (queue.songs.length > 0) {
         setTimeout(() => this.play(guildId, voiceChannel), 1000);
