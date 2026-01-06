@@ -177,16 +177,16 @@ export class MusicManager {
 
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       
-      // SOLUCIÓN PARA EVITAR ERR_INVALID_URL
-      // play.stream acepta directamente la URL
-      const stream = await play.stream(queue.currentSong.url, {
+      // SOLUCIÓN DEFINITIVA: Usar play.stream(url) directamente sin play.stream_from_info
+      // El error ERR_INVALID_URL ocurre cuando play.stream recibe un objeto de info en lugar de un string URL
+      const source = await play.stream(queue.currentSong.url, {
         discordPlayerCompatibility: true
       });
       
-      console.log(`✅ Stream obtenido para: ${queue.currentSong.url}`);
+      console.log(`✅ Stream obtenido (tipo: ${source.type})`);
 
-      const resource = createAudioResource(stream.stream, {
-        inputType: stream.type,
+      const resource = createAudioResource(source.stream, {
+        inputType: source.type,
         inlineVolume: true
       });
 
