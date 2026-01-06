@@ -73,9 +73,16 @@ export class MusicManager {
       
       if (!video) return null;
 
+      // Debug: Verificar propiedades del objeto video
+      console.log('🔍 Propiedades del objeto video:', Object.keys(video));
+      console.log('🔗 video.url:', video.url);
+      console.log('🔗 video.video_url:', video.video_url);
+      console.log('🔗 video.shortURL:', video.shortURL);
+      console.log('🔗 video.id:', video.id);
+
       return {
         title: video.title,
-        url: video.url,
+        url: video.url || video.video_url || `https://www.youtube.com/watch?v=${video.id}`,
         duration: video.durationInSec || 0,
         thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
       };
