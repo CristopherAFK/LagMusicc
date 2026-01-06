@@ -71,10 +71,7 @@ export class MusicManager {
         video = searchResults[0];
       }
       
-      if (!video || !video.url) {
-        console.error('❌ Video data missing or invalid');
-        return null;
-      }
+      if (!video) return null;
 
       return {
         title: video.title,
@@ -178,10 +175,12 @@ export class MusicManager {
         throw new Error('No song URL available');
       }
 
-      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
-      console.log(`🔗 URL verificada: ${queue.currentSong.url}`);
+      console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       
-      const stream = await play.stream(queue.currentSong.url, {
+      // SOLUCIÓN DEFINITIVA PARA PLAY-DL
+      // Obtenemos la info del video primero para asegurar que tenemos una URL válida
+      const videoInfo = await play.video_info(queue.currentSong.url);
+      const stream = await play.stream_from_info(videoInfo, {
         discordPlayerCompatibility: true
       });
       
