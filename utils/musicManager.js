@@ -77,7 +77,7 @@ export class MusicManager {
         title: video.title,
         url: video.url,
         duration: video.durationInSec || 0,
-        thumbnail: video.thumbnails?.[0]?.url || ''
+        thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
       };
     } catch (error) {
       console.error('Error searching song:', error.message);
@@ -93,7 +93,7 @@ export class MusicManager {
         title: video.title,
         url: video.url,
         duration: video.durationInSec || 0,
-        thumbnail: video.thumbnails?.[0]?.url || ''
+        thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
       }));
     } catch (error) {
       console.error('Error getting playlist:', error.message);
@@ -177,14 +177,13 @@ export class MusicManager {
 
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       
-      // SOLUCIÓN DEFINITIVA PARA PLAY-DL
-      // Obtenemos la info del video primero para asegurar que tenemos una URL válida
-      const videoInfo = await play.video_info(queue.currentSong.url);
-      const stream = await play.stream_from_info(videoInfo, {
+      // SOLUCIÓN PARA EVITAR ERR_INVALID_URL
+      // play.stream acepta directamente la URL
+      const stream = await play.stream(queue.currentSong.url, {
         discordPlayerCompatibility: true
       });
       
-      console.log(`✅ Stream obtenido: ${stream.type}`);
+      console.log(`✅ Stream obtenido para: ${queue.currentSong.url}`);
 
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
