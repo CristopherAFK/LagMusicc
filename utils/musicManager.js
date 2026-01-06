@@ -71,11 +71,16 @@ export class MusicManager {
         video = searchResults[0];
       }
       
+      if (!video || !video.url) {
+        console.error('❌ Video data missing or invalid');
+        return null;
+      }
+
       return {
         title: video.title,
         url: video.url,
-        duration: video.durationInSec || video.duration_raw,
-        thumbnail: video.thumbnails?.[0]?.url || video.thumbnail?.url || ''
+        duration: video.durationInSec || 0,
+        thumbnail: video.thumbnails?.[0]?.url || ''
       };
     } catch (error) {
       console.error('Error searching song:', error.message);
@@ -90,7 +95,7 @@ export class MusicManager {
       return videos.map(video => ({
         title: video.title,
         url: video.url,
-        duration: video.durationInSec,
+        duration: video.durationInSec || 0,
         thumbnail: video.thumbnails?.[0]?.url || ''
       }));
     } catch (error) {
@@ -169,10 +174,16 @@ export class MusicManager {
     queue.isPlaying = true;
 
     try {
-      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title} (${queue.currentSong.url})`);
+      if (!queue.currentSong || !queue.currentSong.url) {
+        throw new Error('No song URL available');
+      }
+
+      console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
+      console.log(`🔗 URL verificada: ${queue.currentSong.url}`);
       
-      // Intentar obtener el stream sin flags extras primero para diagnosticar
-      const stream = await play.stream(queue.currentSong.url);
+      const stream = await play.stream(queue.currentSong.url, {
+        discordPlayerCompatibility: true
+      });
       
       console.log(`✅ Stream obtenido: ${stream.type}`);
 
