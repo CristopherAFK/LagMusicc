@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Client, GatewayIntentBits, Collection, REST, Routes, Events } from 'discord.js';
 import { MusicManager } from './utils/musicManager.js';
 import { config } from './config.js';
