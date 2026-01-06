@@ -61,15 +61,19 @@ export class MusicManager {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
-      // Si ya es una URL de YouTube, validarla primero
-      if (query.startsWith('http') && play.yt_validate(query) === 'video') {
-         const videoInfo = await play.video_info(query);
-         return {
+      // Intentar obtener info directamente si parece URL
+      if (query.startsWith('http')) {
+        try {
+          const videoInfo = await play.video_info(query);
+          return {
             title: videoInfo.video_details.title,
             url: videoInfo.video_details.url,
             duration: videoInfo.video_details.durationInSec,
             thumbnail: videoInfo.video_details.thumbnails?.[0]?.url || ''
-         };
+          };
+        } catch (e) {
+          // No es URL directa o falló, buscar normalmente
+        }
       }
 
       const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
@@ -90,17 +94,14 @@ export class MusicManager {
 
   async getPlaylist(url, platform) {
     try {
-      if (url.includes('youtube.com/playlist') || url.includes('list=')) {
-        const playlist = await play.playlist_info(url);
-        const videos = await playlist.all_videos();
-        return videos.map(video => ({
-          title: video.title,
-          url: video.url,
-          duration: video.durationInSec,
-          thumbnail: video.thumbnails?.[0]?.url || ''
-        }));
-      }
-      return [];
+      const playlist = await play.playlist_info(url);
+      const videos = await playlist.all_videos();
+      return videos.map(video => ({
+        title: video.title,
+        url: video.url,
+        duration: video.durationInSec,
+        thumbnail: video.thumbnails?.[0]?.url || ''
+      }));
     } catch (error) {
       console.error('Error getting playlist:', error.message);
       return [];
@@ -181,11 +182,13 @@ export class MusicManager {
     try {
       console.log(`🎵 Intentando reproducir: ${queue.currentSong.title}`);
       
+      // USAR SOLUCIÓN MÁS ROBUSTA PARA REPRODUCCIÓN
       const stream = await play.stream(queue.currentSong.url, {
-        discordPlayerCompatibility: true
+        discordPlayerCompatibility: true,
+        quality: 1 // Calidad normal para asegurar compatibilidad
       });
       
-      console.log(`✅ Stream obtenido (tipo: ${stream.type})`);
+      console.log(`✅ Stream obtenido para: ${queue.currentSong.title}`);
 
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
@@ -194,7 +197,7 @@ export class MusicManager {
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ ¡Reproducción iniciada en Discord!`);
+      console.log(`✅ ¡Reproducción iniciada en canal: ${voiceChannel.name}!`);
     } catch (error) {
       console.error('❌ Error crítico en play:', error.message);
       queue.songs.shift();
