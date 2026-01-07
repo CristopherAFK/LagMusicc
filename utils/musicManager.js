@@ -65,6 +65,7 @@ export class MusicManager {
       if (query.startsWith('http')) {
         const videoInfo = await play.video_info(query);
         video = videoInfo.video_details;
+        video._videoInfo = videoInfo; // Store complete info for later use
       } else {
         const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
         if (searchResults.length === 0) return null;
@@ -82,9 +83,10 @@ export class MusicManager {
 
       return {
         title: video.title,
-        url: video.url || video.video_url || `https://www.youtube.com/watch?v=${video.id}`,
-        duration: video.durationInSec || 0,
-        thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
+        url: video.url || video.video_url || video.shortURL || `https://www.youtube.com/watch?v=${video.id}`,
+        duration: video.durationInSec || video.duration || 0,
+        thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : '',
+        _videoInfo: video._videoInfo || null // Incluir info completa si está disponible
       };
     } catch (error) {
       console.error('Error searching song:', error.message);
@@ -198,11 +200,16 @@ export class MusicManager {
       
       console.log(`✅ URL validada correctamente`);
       
-      // SOLUCIÓN: Usar video_info() primero y luego stream_from_info()
-      // play.stream() directo con URL de YouTube puede fallar en algunas versiones
-      console.log(`🔗 Obteniendo info del video: ${queue.currentSong.url}`);
-      const videoInfo = await play.video_info(queue.currentSong.url);
-      console.log(`✅ Info obtenida para: ${videoInfo.video_details.title}`);
+      // SOLUCIÓN: Usar videoInfo almacenado o obtenerlo si no existe
+      let videoInfo;
+      if (queue.currentSong._videoInfo) {
+        console.log(`✅ Usando info previamente obtenida para: ${queue.currentSong.title}`);
+        videoInfo = queue.currentSong._videoInfo;
+      } else {
+        console.log(`🔗 Obteniendo info del video: ${queue.currentSong.url}`);
+        videoInfo = await play.video_info(queue.currentSong.url);
+        console.log(`✅ Info obtenida para: ${videoInfo.video_details.title}`);
+      }
       
       const source = await play.stream_from_info(videoInfo, {
         discordPlayerCompatibility: true
