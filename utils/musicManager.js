@@ -212,9 +212,16 @@ export class MusicManager {
       console.log(`🎵 Iniciando reproducción con play-dl: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      // Importar play-dl dinámicamente y crear stream
+      // Importar play-dl dinámicamente y obtener info del video primero
       const playDl = await import('play-dl');
-      const streamData = await playDl.default.stream(queue.currentSong.url, {
+      
+      // Primero obtener la información del video
+      console.log(`🔍 Obteniendo información del video...`);
+      const videoInfo = await playDl.default.video_info(queue.currentSong.url);
+      
+      // Luego crear el stream usando la información del video
+      console.log(`🎵 Creando stream de audio...`);
+      const streamData = await playDl.default.stream_from_info(videoInfo, {
         quality: 2 // Alta calidad de audio
       });
       
