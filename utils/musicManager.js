@@ -214,7 +214,7 @@ export class MusicManager {
       
       // Importar play-dl dinámicamente y crear stream
       const playDl = await import('play-dl');
-      const streamData = await playDl.stream(queue.currentSong.url, {
+      const streamData = await playDl.default.stream(queue.currentSong.url, {
         quality: 2 // Alta calidad de audio
       });
       
