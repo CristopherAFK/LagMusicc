@@ -8,6 +8,7 @@ import {
   StreamType
 } from '@discordjs/voice';
 import { search } from 'play-dl';
+import ytdl from 'ytdl-core';
 
 export class MusicManager {
   constructor() {
@@ -221,9 +222,6 @@ export class MusicManager {
 
       const resource = createAudioResource(streamData.stream, {
         inputType: streamData.type,
-        inlineVolume: true
-      });
-        inputType: StreamType.Arbitrary,
         inlineVolume: true
       });
 
