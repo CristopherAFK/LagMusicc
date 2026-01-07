@@ -1,4 +1,4 @@
-import 'dotenv/config';
+// dotenv no es necesario en Replit - las variables de entorno se cargan automáticamente desde secrets
 import { Client, GatewayIntentBits, Collection, REST, Routes, Events } from 'discord.js';
 import { MusicManager } from './utils/musicManager.js';
 import { config } from './config.js';
