@@ -208,15 +208,18 @@ export class MusicManager {
       
       console.log(`✅ URL validada correctamente`);
       
-      // SOLUCIÓN DEFINITIVA: Usar play.stream(url) directamente sin play.stream_from_info
-      // El error ERR_INVALID_URL ocurre cuando play.stream recibe un objeto de info en lugar de un string URL
+      // SOLUCIÓN: Usar ytdl-core en lugar de play-dl para evitar "Invalid URL"
+      console.log(`🎵 Iniciando reproducción con ytdl-core: ${queue.currentSong.title}`);
+      console.log(`🔗 URL: ${queue.currentSong.url}`);
+      
+      // Crear stream directamente con ytdl-core
       const stream = ytdl(queue.currentSong.url, {
         filter: 'audioonly',
         quality: 'highestaudio',
         highWaterMark: 1 << 25
       });
       
-      console.log(`✅ Stream obtenido con ytdl-core`);
+      console.log(`✅ Stream de ytdl-core creado exitosamente`);
 
       const resource = createAudioResource(stream, {
         inputType: StreamType.Arbitrary,
@@ -225,7 +228,7 @@ export class MusicManager {
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ Reproducción iniciada`);
+      console.log(`✅ Reproducción iniciada con ytdl-core`);
     } catch (error) {
       console.error('❌ Error crítico en play:', error);
       queue.songs.shift();
