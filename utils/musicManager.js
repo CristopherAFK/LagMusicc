@@ -73,9 +73,16 @@ export class MusicManager {
       
       if (!video) return null;
 
+      // Debug: Verificar propiedades del objeto video
+      console.log('🔍 Propiedades del objeto video:', Object.keys(video));
+      console.log('🔗 video.url:', video.url);
+      console.log('🔗 video.video_url:', video.video_url);
+      console.log('🔗 video.shortURL:', video.shortURL);
+      console.log('🔗 video.id:', video.id);
+
       return {
         title: video.title,
-        url: video.url,
+        url: video.url || video.video_url || `https://www.youtube.com/watch?v=${video.id}`,
         duration: video.durationInSec || 0,
         thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
       };
@@ -176,6 +183,20 @@ export class MusicManager {
       }
 
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
+      console.log(`🔗 URL que se va a usar: "${queue.currentSong.url}"`);
+      console.log(`🔍 Tipo de URL: ${typeof queue.currentSong.url}`);
+      
+      // Validar que la URL sea válida antes de usarla
+      if (!queue.currentSong.url || typeof queue.currentSong.url !== 'string') {
+        throw new Error(`Invalid URL type: ${typeof queue.currentSong.url}, value: ${queue.currentSong.url}`);
+      }
+      
+      // Verificar que la URL tenga el formato correcto de YouTube
+      if (!queue.currentSong.url.includes('youtube.com/watch') && !queue.currentSong.url.includes('youtu.be/')) {
+        throw new Error(`Invalid YouTube URL format: ${queue.currentSong.url}`);
+      }
+      
+      console.log(`✅ URL validada correctamente`);
       
       // SOLUCIÓN: Usar video_info() primero y luego stream_from_info()
       // play.stream() directo con URL de YouTube puede fallar en algunas versiones
