@@ -7,7 +7,6 @@ import {
   entersState,
   StreamType
 } from '@discordjs/voice';
-import ytdl from '@distube/ytdl-core';
 import { search } from 'play-dl';
 
 export class MusicManager {
@@ -208,18 +207,17 @@ export class MusicManager {
       
       console.log(`✅ URL validada correctamente`);
       
-      // SOLUCIÓN: Usar ytdl-core en lugar de play-dl para evitar "Invalid URL"
-      console.log(`🎵 Iniciando reproducción con ytdl-core: ${queue.currentSong.title}`);
+      // SOLUCIÓN: Usar play-dl en lugar de ytdl-core para evitar errores de extracción
+      console.log(`🎵 Iniciando reproducción con play-dl: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      // Crear stream directamente con ytdl-core
-      const stream = ytdl(queue.currentSong.url, {
-        filter: 'audioonly',
-        quality: 'highestaudio',
-        highWaterMark: 1 << 25
+      // Importar play-dl dinámicamente y crear stream
+      const playDl = await import('play-dl');
+      const stream = await playDl.stream(queue.currentSong.url, {
+        quality: 2 // Alta calidad de audio
       });
       
-      console.log(`✅ Stream de ytdl-core creado exitosamente`);
+      console.log(`✅ Stream de play-dl creado exitosamente`);
 
       const resource = createAudioResource(stream, {
         inputType: StreamType.Arbitrary,
@@ -228,7 +226,7 @@ export class MusicManager {
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ Reproducción iniciada con ytdl-core`);
+      console.log(`✅ Reproducción iniciada con play-dl`);
     } catch (error) {
       console.error('❌ Error crítico en play:', error);
       queue.songs.shift();
