@@ -208,33 +208,28 @@ export class MusicManager {
       
       console.log(`✅ URL validada correctamente`);
       
-      // SOLUCIÓN: Usar play-dl en lugar de ytdl-core para evitar errores de extracción
-      console.log(`🎵 Iniciando reproducción con play-dl: ${queue.currentSong.title}`);
+      // SOLUCIÓN: Usar ytdl-core directamente para mayor compatibilidad
+      console.log(`🎵 Iniciando reproducción con ytdl-core: ${queue.currentSong.title}`);
       console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      // Importar play-dl dinámicamente y obtener info del video primero
-      const playDl = await import('play-dl');
-      
-      // Primero obtener la información del video
-      console.log(`🔍 Obteniendo información del video...`);
-      const videoInfo = await playDl.default.video_info(queue.currentSong.url);
-      
-      // Luego crear el stream usando la información del video
-      console.log(`🎵 Creando stream de audio...`);
-      const streamData = await playDl.default.stream(queue.currentSong.url, {
-        quality: 2 // Alta calidad de audio
+      // Usar ytdl-core directamente para crear el stream
+      console.log(`🎵 Creando stream de audio con ytdl-core...`);
+      const stream = ytdl(queue.currentSong.url, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
       });
       
-      console.log(`✅ Stream de play-dl creado exitosamente`);
+      console.log(`✅ Stream de ytdl-core creado exitosamente`);
 
-      const resource = createAudioResource(streamData.stream, {
-        inputType: streamData.type,
+      const resource = createAudioResource(stream, {
+        inputType: StreamType.Arbitrary,
         inlineVolume: true
       });
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ Reproducción iniciada con play-dl`);
+      console.log(`✅ Reproducción iniciada con ytdl-core`);
     } catch (error) {
       console.error('❌ Error crítico en play:', error);
       queue.songs.shift();
