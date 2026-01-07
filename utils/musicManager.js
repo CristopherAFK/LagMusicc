@@ -8,6 +8,7 @@ import {
   StreamType
 } from '@discordjs/voice';
 import play from 'play-dl';
+import ytdl from 'ytdl-core';
 
 export class MusicManager {
   constructor() {
@@ -200,31 +201,27 @@ export class MusicManager {
       
       console.log(`✅ URL validada correctamente`);
       
-      // SOLUCIÓN: Usar videoInfo almacenado o obtenerlo si no existe
-      let videoInfo;
-      if (queue.currentSong._videoInfo) {
-        console.log(`✅ Usando info previamente obtenida para: ${queue.currentSong.title}`);
-        videoInfo = queue.currentSong._videoInfo;
-      } else {
-        console.log(`🔗 Obteniendo info del video: ${queue.currentSong.url}`);
-        videoInfo = await play.video_info(queue.currentSong.url);
-        console.log(`✅ Info obtenida para: ${videoInfo.video_details.title}`);
-      }
+      // SOLUCIÓN: Usar ytdl-core en lugar de play-dl para evitar "Invalid URL"
+      console.log(`🎵 Iniciando reproducción con ytdl-core: ${queue.currentSong.title}`);
+      console.log(`🔗 URL: ${queue.currentSong.url}`);
       
-      const source = await play.stream_from_info(videoInfo, {
-        discordPlayerCompatibility: true
+      // Crear stream directamente con ytdl-core
+      const stream = ytdl(queue.currentSong.url, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
       });
       
-      console.log(`✅ Stream obtenido (tipo: ${source.type})`);
+      console.log(`✅ Stream de ytdl-core creado exitosamente`);
 
-      const resource = createAudioResource(source.stream, {
-        inputType: source.type,
+      const resource = createAudioResource(stream, {
+        inputType: StreamType.Arbitrary,
         inlineVolume: true
       });
 
       connection.subscribe(player);
       player.play(resource);
-      console.log(`✅ Reproducción iniciada`);
+      console.log(`✅ Reproducción iniciada con ytdl-core`);
     } catch (error) {
       console.error('❌ Error crítico en play:', error);
       queue.songs.shift();
