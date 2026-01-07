@@ -7,8 +7,7 @@ import {
   entersState,
   StreamType
 } from '@discordjs/voice';
-import { search } from 'play-dl';
-import playDl from 'play-dl';
+import * as playDl from 'play-dl';
 
 export class MusicManager {
   constructor() {
@@ -87,7 +86,7 @@ export class MusicManager {
       } else {
         // Para búsquedas por texto, usar play-dl para buscar
         console.log(`🔍 Buscando por texto: ${searchQuery}`);
-        const searchResults = await search(searchQuery, { limit: 1, source: { youtube: 'video' } });
+        const searchResults = await playDl.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
         if (searchResults.length === 0) return null;
         
         const video = searchResults[0];
@@ -108,8 +107,7 @@ export class MusicManager {
   async getPlaylist(url, platform) {
     try {
       // Importar play-dl dinámicamente solo cuando se necesite para playlists
-      const playDl = await import('play-dl');
-      const playlist = await playDl.default.playlist_info(url);
+      const playlist = await playDl.playlist_info(url);
       const videos = await playlist.all_videos();
       return videos.map(video => ({
         title: video.title,
