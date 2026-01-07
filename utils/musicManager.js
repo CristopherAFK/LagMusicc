@@ -7,7 +7,8 @@ import {
   entersState,
   StreamType
 } from '@discordjs/voice';
-import play from 'play-dl';
+import ytdl from 'ytdl-core';
+import { search } from 'play-dl';
 
 export class MusicManager {
   constructor() {
@@ -61,31 +62,38 @@ export class MusicManager {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
-      let video;
+      // Para URLs directas de YouTube, usar ytdl-core directamente
       if (query.startsWith('http')) {
-        const videoInfo = await play.video_info(query);
-        video = videoInfo.video_details;
+        if (!ytdl.validateURL(query)) {
+          console.error('❌ URL de YouTube inválida:', query);
+          return null;
+        }
+        
+        const info = await ytdl.getInfo(query);
+        const videoDetails = info.videoDetails;
+        
+        return {
+          title: videoDetails.title,
+          url: videoDetails.video_url,
+          duration: parseInt(videoDetails.lengthSeconds) || 0,
+          thumbnail: videoDetails.thumbnails && videoDetails.thumbnails.length > 0 
+            ? videoDetails.thumbnails[0].url : '',
+          _videoInfo: info
+        };
       } else {
-        const searchResults = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
+        // Para búsquedas por texto, necesitamos usar play-dl solo para buscar
+        const searchResults = await search(searchQuery, { limit: 1, source: { youtube: 'video' } });
         if (searchResults.length === 0) return null;
-        video = searchResults[0];
+        
+        const video = searchResults[0];
+        
+        return {
+          title: video.title,
+          url: video.url,
+          duration: video.durationInSec || 0,
+          thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
+        };
       }
-      
-      if (!video) return null;
-
-      // Debug: Verificar propiedades del objeto video
-      console.log('🔍 Propiedades del objeto video:', Object.keys(video));
-      console.log('🔗 video.url:', video.url);
-      console.log('🔗 video.video_url:', video.video_url);
-      console.log('🔗 video.shortURL:', video.shortURL);
-      console.log('🔗 video.id:', video.id);
-
-      return {
-        title: video.title,
-        url: video.url || video.video_url || `https://www.youtube.com/watch?v=${video.id}`,
-        duration: video.durationInSec || 0,
-        thumbnail: (video.thumbnails && video.thumbnails.length > 0) ? video.thumbnails[0].url : ''
-      };
     } catch (error) {
       console.error('Error searching song:', error.message);
       return null;
@@ -94,7 +102,9 @@ export class MusicManager {
 
   async getPlaylist(url, platform) {
     try {
-      const playlist = await play.playlist_info(url);
+      // Importar play-dl dinámicamente solo cuando se necesite para playlists
+      const playDl = await import('play-dl');
+      const playlist = await playDl.default.playlist_info(url);
       const videos = await playlist.all_videos();
       return videos.map(video => ({
         title: video.title,
@@ -200,14 +210,16 @@ export class MusicManager {
       
       // SOLUCIÓN DEFINITIVA: Usar play.stream(url) directamente sin play.stream_from_info
       // El error ERR_INVALID_URL ocurre cuando play.stream recibe un objeto de info en lugar de un string URL
-      const source = await play.stream(queue.currentSong.url, {
-        discordPlayerCompatibility: true
+      const stream = ytdl(queue.currentSong.url, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
       });
       
-      console.log(`✅ Stream obtenido (tipo: ${source.type})`);
+      console.log(`✅ Stream obtenido con ytdl-core`);
 
-      const resource = createAudioResource(source.stream, {
-        inputType: source.type,
+      const resource = createAudioResource(stream, {
+        inputType: StreamType.Arbitrary,
         inlineVolume: true
       });
 
