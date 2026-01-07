@@ -62,26 +62,31 @@ export class MusicManager {
     try {
       const searchQuery = isKaraoke ? `${query} karaoke` : query;
       
-      // Para URLs directas de YouTube, usar ytdl-core directamente
+      // Para URLs directas de YouTube, usar play-dl directamente
       if (query.startsWith('http')) {
-        if (!ytdl.validateURL(query)) {
+        console.log(`🔗 URL directa detectada: ${query}`);
+        
+        // Validar que sea una URL de YouTube válida
+        if (!query.includes('youtube.com/watch') && !query.includes('youtu.be/')) {
           console.error('❌ URL de YouTube inválida:', query);
           return null;
         }
         
-        const info = await ytdl.getInfo(query);
-        const videoDetails = info.videoDetails;
+        // Usar play-dl para obtener información del video
+        const info = await playDl.video_info(query);
+        const videoDetails = info.video_details;
         
         return {
           title: videoDetails.title,
-          url: videoDetails.video_url,
-          duration: parseInt(videoDetails.lengthSeconds) || 0,
+          url: videoDetails.url,
+          duration: parseInt(videoDetails.durationInSec) || 0,
           thumbnail: videoDetails.thumbnails && videoDetails.thumbnails.length > 0 
             ? videoDetails.thumbnails[0].url : '',
           _videoInfo: info
         };
       } else {
-        // Para búsquedas por texto, necesitamos usar play-dl solo para buscar
+        // Para búsquedas por texto, usar play-dl para buscar
+        console.log(`🔍 Buscando por texto: ${searchQuery}`);
         const searchResults = await search(searchQuery, { limit: 1, source: { youtube: 'video' } });
         if (searchResults.length === 0) return null;
         
