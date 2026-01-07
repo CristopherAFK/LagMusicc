@@ -216,8 +216,8 @@ export class MusicManager {
       const info = await playDl.video_info(queue.currentSong.url);
       console.log(`✅ Información del video obtenida: ${info.video_details.title}`);
       
-      // Crear el stream usando la información obtenida
-      const stream = await playDl.stream(queue.currentSong.url, {
+      // Crear el stream usando stream_from_info con la información obtenida
+      const stream = await playDl.stream_from_info(info, {
         quality: 2 // Alta calidad de audio
       });
       
