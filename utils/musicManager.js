@@ -212,11 +212,19 @@ export class MusicManager {
       console.log(`✅ URL validada correctamente`);
       
       // SOLUCIÓN: Usar play-dl con el flujo correcto
-      console.log(`🎵 Iniciando reproducción con play-dl: ${queue.currentSong.title}`);
-      console.log(`🔗 URL: ${queue.currentSong.url}`);
+      // Preservar la URL en una variable local para evitar modificaciones
+      const songUrl = queue.currentSong.url;
+      const songTitle = queue.currentSong.title;
       
-      // Obtener información del video primero
-      const info = await playDl.video_info(queue.currentSong.url);
+      console.log(`🎵 Iniciando reproducción con play-dl: ${songTitle}`);
+      console.log(`🔗 URL preservada: ${songUrl}`);
+      
+      // Obtener información del video primero - con validación adicional
+      console.log(`🔍 Validando URL antes de video_info: "${songUrl}"`);
+      if (!songUrl) {
+        throw new Error('URL became undefined before video_info call');
+      }
+      const info = await playDl.video_info(songUrl);
       console.log(`✅ Información del video obtenida: ${info.video_details.title}`);
       
       // Crear el stream usando stream_from_info con la información obtenida
