@@ -177,9 +177,13 @@ export class MusicManager {
 
       console.log(`🎵 Reproduciendo: ${queue.currentSong.title}`);
       
-      // SOLUCIÓN DEFINITIVA: Usar play.stream(url) directamente sin play.stream_from_info
-      // El error ERR_INVALID_URL ocurre cuando play.stream recibe un objeto de info en lugar de un string URL
-      const source = await play.stream(queue.currentSong.url, {
+      // SOLUCIÓN: Usar video_info() primero y luego stream_from_info()
+      // play.stream() directo con URL de YouTube puede fallar en algunas versiones
+      console.log(`🔗 Obteniendo info del video: ${queue.currentSong.url}`);
+      const videoInfo = await play.video_info(queue.currentSong.url);
+      console.log(`✅ Info obtenida para: ${videoInfo.video_details.title}`);
+      
+      const source = await play.stream_from_info(videoInfo, {
         discordPlayerCompatibility: true
       });
       
